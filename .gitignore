@@ -1,0 +1,30 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# PyTorch checkpoints and models
+*.pt
+*.pth
+
+# Environments
+.env
+.venv
+env/
+venv/
+ENV/
+
+# Output artifacts
+*.log
+# Allow comparison plot for GitHub README
+*.png
+!rnn_vs_lstm_comparison.png
+
+# OS generated files
+.DS_Store
+Thumbs.db
+
+# Dataset (too large for git tracking)
+aclImdb/
+*.tar.gz
+*.zip
