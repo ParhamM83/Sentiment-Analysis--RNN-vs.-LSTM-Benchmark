@@ -6,29 +6,24 @@ A comparative study evaluating the performance, convergence rate, and generaliza
 
 ## Overview
 
-Recurrent neural networks process sequential data by maintaining an internal hidden state across time steps. However, standard Vanilla RNNs suffer from vanishing and exploding gradients when handling long textual sequences due to repeated matrix multiplications in the backpropagation-through-time (BPTT) pathway.
+Vanilla RNNs process sequences via an internal hidden state, but suffer from vanishing/exploding gradients on long sequences due to repeated matrix multiplications in backpropagation-through-time (BPTT). LSTMs address this with a memory cell and three gates:
 
-LSTMs address this fundamental limitation by introducing a memory cell state and three distinct gating mechanisms:
-- **Forget Gate**: Regulates which information from the previous cell state should be discarded.
-- **Input Gate**: Determines which new candidate values should be stored in the cell state.
-- **Output Gate**: Controls which parts of the updated cell state should be emitted as the hidden state.
+- **Forget Gate**: determines what to discard from the previous cell state.
+- **Input Gate**: determines which new values to store in the cell state.
+- **Output Gate**: controls what part of the updated cell state is emitted as the hidden state.
 
-This repository benchmarks both architectures under identical experimental setups (dataset, vocabulary, embedding size, hidden dimension, layer depth, learning rate, and optimizer).
+This repository benchmarks both architectures under an identical experimental setup (dataset, vocabulary, embedding size, hidden dimension, layer depth, learning rate, optimizer).
 
 ---
 
 ## Architecture and Preprocessing
 
-- **Dataset**: Large Movie Review Dataset (`aclImdb`) consisting of 25,000 training and 25,000 test reviews labeled as positive (1) or negative (0).
-- **Text Normalization**: Stripping HTML tags (`<br />`), non-alphanumeric character removal, lowercasing, and whitespace trimming.
-- **Vocabulary**: Frequency-filtered vocabulary with `<pad>` (index 0) and `<unk>` (index 1) special tokens.
-- **Sequence Handling**: Dynamic batch padding and sequence packing using PyTorch's `pack_padded_sequence` to ignore padded tokens during recurrence.
+- **Dataset**: Large Movie Review Dataset (`aclImdb`) — 25,000 training and 25,000 test reviews labeled positive (1) / negative (0).
+- **Preprocessing**: strip HTML tags, remove non-alphanumerics, lowercase, trim whitespace; frequency-filtered vocabulary with `<pad>` (0) and `<unk>` (1) tokens; dynamic padding and `pack_padded_sequence` to ignore padded tokens.
 - **Model Pipeline**:
-  - Word Embedding: `nn.Embedding(vocab_size=20,002, embedding_dim=128, padding_idx=0)`
-  - Recurrent Backbone: 2-Layer Bidirectional RNN or 2-Layer Bidirectional LSTM (`hidden_dim=128`, `dropout=0.3`)
-  - Bidirectional Concatenation: Merging the final forward and backward hidden states (dimension 256)
-  - Regularization: Dropout (`p=0.3`)
-  - Classification Head: Linear projection layer (`256 -> 2`) with `nn.CrossEntropyLoss`
+  - `nn.Embedding(vocab_size=20,002, embedding_dim=128, padding_idx=0)`
+  - 2-layer bidirectional RNN or LSTM (`hidden_dim=128`, `dropout=0.3`), forward/backward hidden states concatenated (dim 256)
+  - Classification head: linear layer (`256 -> 2`) with `nn.CrossEntropyLoss`
 
 ---
 
@@ -49,28 +44,26 @@ Both models were trained on CUDA for 5 epochs using the Adam optimizer (`lr=1e-3
 
 ### Training Curves
 
-Below is the comparative training and validation progression across epochs:
-
 ![RNN vs LSTM Loss and Accuracy Comparison](rnn_vs_lstm_comparison.png)
 
 ### Key Findings
 
-1. **Long-Term Dependency Preservation**: Movie reviews frequently span hundreds of words. Vanilla RNN hidden states decay over long contexts, limiting peak validation accuracy to **75.25%**. In contrast, the LSTM cell state preserves long-range sentiment signals, achieving **88.11%** peak validation accuracy.
-2. **Convergence and Fitting Capacity**: The LSTM demonstrates significantly higher expressive capacity, driving training loss down to **0.1605** (94.03% accuracy) compared to **0.4234** (80.95% accuracy) for the Vanilla RNN.
-3. **Parameter Efficiency**: While the recurrent weights in an LSTM are roughly four times larger than an RNN of the same hidden size (due to 4 internal gates), the embedding matrix dominates the total parameter count in both networks. Consequently, the LSTM requires only an 18.1% increase in total trainable parameters while delivering a **~14.7% absolute gain** in final validation accuracy.
+1. **Long-Term Dependencies**: RNN hidden states decay over long reviews, capping validation accuracy at **75.25%**, while the LSTM cell state preserves long-range sentiment, reaching **88.11%**.
+2. **Convergence**: The LSTM fits the training data much better, reaching loss **0.1605** (94.03% accuracy) versus **0.4234** (80.95%) for the RNN.
+3. **Parameter Efficiency**: Despite ~4x larger recurrent weights (4 internal gates), the shared embedding matrix dominates both networks, so the LSTM gains **~14.7%** validation accuracy for only an **18.1%** parameter increase.
 
 ---
 
 ## Project Structure
 
 ```text
-├── data.py                   # Preprocessing, vocabulary builder, dataset loading, and collate function
-├── model.py                  # SentimentClassifier module supporting RNN and LSTM cell types
-├── trainer.py                # Trainer class managing training, validation, tqdm logging, and checkpointing
-├── main.py                   # Main CLI script for dataset loading, training, benchmarking, and plotting
-├── rnn_vs_lstm_comparison.png# Generated loss and accuracy comparison plot
-├── aclImdb/                  # IMDB dataset directory (excluded via .gitignore)
-├── README.md                 # Project documentation and benchmark report
+├── data.py                   # Preprocessing, vocabulary building, dataset loading, collate function
+├── model.py                  # SentimentClassifier (RNN or LSTM)
+├── trainer.py                # Training, validation, logging, checkpointing
+├── main.py                   # CLI entry point: benchmarking and plotting
+├── rnn_vs_lstm_comparison.png# Generated comparison plot
+├── aclImdb/                  # IMDB dataset (gitignored)
+├── README.md                 # Project documentation
 └── .gitignore                # Git ignore rules
 ```
 
@@ -78,61 +71,23 @@ Below is the comparative training and validation progression across epochs:
 
 ## Getting Started
 
-### 1. Requirements
+1. **Install dependencies** (Python 3.8+, PyTorch >= 2.0):
+   ```bash
+   pip install torch tqdm matplotlib numpy
+   ```
 
-- Python 3.8+
-- PyTorch >= 2.0
-- tqdm
-- matplotlib
-- numpy
+2. **Download the dataset**: the [`aclImdb` (Stanford Large Movie Review) dataset](https://ai.stanford.edu/~amaas/data/sentiment/aclImdb_v1.tar.gz) is not included in the repository (50,000 text files, gitignored). Download the archive above and extract it to the project root:
 
-Install dependencies:
-```bash
-pip install torch tqdm matplotlib numpy
-```
+   The `aclImdb/` folder must contain `train/` and `test/` subdirectories, each with `pos/` and `neg/` folders.
 
-### 2. Dataset Setup
+3. **Run the benchmark** (trains RNN and LSTM, prints the comparison table, and generates the plot):
+   ```bash
+   python main.py
+   ```
 
-> [!NOTE]
-> Due to file size limits and repository best practices, the `aclImdb` dataset is not tracked in this repository (it contains 50,000 text files and is ignored via `.gitignore`).
-
-Download the [Stanford Large Movie Review Dataset (aclImdb v1)](https://ai.stanford.edu/~amaas/data/sentiment/aclImdb_v1.tar.gz) and extract it into the project root directory:
-
-```bash
-# Download and extract
-curl -O https://ai.stanford.edu/~amaas/data/sentiment/aclImdb_v1.tar.gz
-tar -xzf aclImdb_v1.tar.gz
-```
-
-Verify that the `aclImdb` directory is structured as follows:
-```text
-aclImdb/
-├── train/
-│   ├── pos/
-│   └── neg/
-└── test/
-    ├── pos/
-    └── neg/
-```
-
-### 3. Run Benchmark
-
-Run the full benchmark (trains both RNN and LSTM, prints comparison table, and generates the comparison plot):
-```bash
-python main.py
-```
-
-### 4. Optional Arguments
-
-```bash
-python main.py \
-  --data_dir ./aclImdb \
-  --epochs 5 \
-  --batch_size 32 \
-  --hidden_dim 128 \
-  --num_layers 2 \
-  --dropout 0.3 \
-  --lr 0.001 \
-  --seed 42 \
-  --plot
-```
+4. **Optional arguments** (defaults shown):
+   ```bash
+   python main.py --data_dir ./aclImdb --epochs 5 --batch_size 32 \
+     --hidden_dim 128 --num_layers 2 --dropout 0.3 --lr 0.001 \
+     --seed 42 --plot
+   ```
